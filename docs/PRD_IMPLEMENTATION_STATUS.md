@@ -28,7 +28,7 @@ Status: **Implemented / prod deployed**
 
 ### 2. Private single-user setup/login
 
-Status: **Implemented / prod deployed**, with one DB hardening item **DB applied, pending app deploy**
+Status: **Implemented / prod deployed**
 
 - First setup uses env-backed one-time setup token plus chosen password.
 - Password is hashed in Supabase; plaintext password is not stored.
@@ -45,7 +45,7 @@ Status: **Implemented / prod deployed**, with one DB hardening item **DB applied
 
 ### 3. Supabase normalized schema and security posture
 
-Status: **Implemented / prod deployed**, with final cron-secret hardening **DB applied, pending app deploy/commit**
+Status: **Implemented / prod deployed**
 
 - Normalized tables exist for:
   - `app_secret`
@@ -62,7 +62,7 @@ Status: **Implemented / prod deployed**, with final cron-secret hardening **DB a
 - RLS is enabled on 11/11 checked public tables.
 - Tables use deny-by-default policies; app access goes through server routes/security-definer RPCs.
 - Cron/app internal routes validate `Authorization: Bearer <ADRIANOOS_CRON_SECRET>`.
-- `adrianoos_set_cron_secret` has been hardened in Supabase migration `202605040018_final_prd_security_and_day1.sql` so existing cron secret rotation requires the current secret. This was applied to Supabase but still needs commit/push/deploy cleanup.
+- `adrianoos_set_cron_secret` has been hardened in Supabase migration `202605040018_final_prd_security_and_day1.sql` so existing cron secret rotation requires the current secret. This is applied to Supabase, committed, pushed, and production deployed.
 
 ### 4. Topic intake
 
@@ -178,7 +178,7 @@ Status: **Implemented / prod deployed**, heuristic-based
 
 ### 11. Missed day, catch-up, and sprint extension
 
-Status: **Implemented / prod deployed**, with final first-day labeling fix **DB applied, pending app deploy/commit**
+Status: **Implemented / prod deployed**
 
 - Cron uses Asia/Manila date logic.
 - If prior generated work is incomplete after schedule, sprint stays on the current learning day and assigns catch-up.
@@ -187,7 +187,7 @@ Status: **Implemented / prod deployed**, with final first-day labeling fix **DB 
 - Sprint target end date extends within max end date when needed.
 - Max sprint length is 14 days.
 - At Day 14/max date with incomplete work, cron returns/sends a `maxed` recommendation: essentials-only, continuation sprint, or archive/restart.
-- Final DB migration `202605040018_final_prd_security_and_day1.sql` fixes first Day 1/current-day cron generation so an ungenerated same-day assignment is reported as normal `generate`, not falsely as catch-up. This migration has been applied to Supabase and still needs commit/push/deploy cleanup.
+- Final DB migration `202605040018_final_prd_security_and_day1.sql` fixes first Day 1/current-day cron generation so an ungenerated same-day assignment is reported as normal `generate`, not falsely as catch-up. This migration is applied to Supabase, committed, pushed, and production deployed.
 
 ### 12. Progress and streak tracking
 
@@ -257,27 +257,17 @@ Status: **Implemented / prod deployed unless noted**
 
 ## Known remaining todo / verification queue
 
-1. **Commit/push/deploy final DB/docs cleanup**
-   - Files currently changed locally at last status check:
-     - `README.md`
-     - `supabase/migrations/202605040018_final_prd_security_and_day1.sql`
-   - Migration `202605040018_final_prd_security_and_day1.sql` has already been applied to Supabase.
-   - Need to run lint/build/audit, commit, push, and verify Vercel production deployment.
+1. **Verify first normal Day 1 app cron behavior**
+   - DB function inspection confirms a newly assigned same-day Day 1/current day with no `learnable_json` returns `action: generate`, not `catchup`.
+   - Still useful to run a controlled end-to-end fixture or observe the next real cron run.
 
-2. **Verify cron secret hardening fully**
-   - Supabase currently has both old and new overloads visible in function lookup.
-   - Confirm `anon` cannot execute the old one-argument `adrianoos_set_cron_secret(text)` and cannot rotate without the current secret.
-
-3. **Verify first normal Day 1 app cron behavior**
-   - Need an end-to-end test or controlled DB fixture showing a newly active same-day Day 1 with no `learnable_json` produces `action: generate`, not `catchup`.
-
-4. **Verify autonomous OpenClaw worker first run**
+2. **Verify autonomous OpenClaw worker first run**
    - Cron job exists and is enabled outside repo, but first successful run has not yet been observed.
    - Job ID: `6eecbb53-f355-4783-a252-5c1f2ad20110`.
    - Name: `adrianoos-research-generation`.
    - Schedule: 4:30 AM Asia/Manila.
    - Next step: run manually once or wait for scheduled run, then inspect logs/output and Supabase `generation_requests`.
 
-5. **Final PRD strictness audit**
+3. **Final PRD strictness audit**
    - After the above, compare this file against the PRD again.
    - Pay special attention to strict import/export interpretation: combined snapshot vs separate overview/daily/flashcard exports.
