@@ -28,6 +28,9 @@ export async function GET(request: Request) {
   if (advance.action === "completed") {
     return NextResponse.json({ ok: true, action: "completed", report: "Sprint is complete. Start a continuation sprint only if needed." });
   }
+  if (advance.action === "maxed") {
+    return NextResponse.json({ ok: true, action: "maxed", report: advance.recommendation ?? "Sprint reached the 14-day maximum. Choose essentials-only wrap-up, continuation sprint, or archive/restart." });
+  }
 
   const overview = active.overview_json as SprintOverview;
   const catchup = advance.action === "catchup";

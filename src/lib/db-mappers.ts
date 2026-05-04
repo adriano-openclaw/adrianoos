@@ -36,6 +36,12 @@ export function snapshotToState(snapshot: SnapshotResponse): LearningState {
     lessonDone[idx] = Boolean(day.lesson_completed_at);
     cardsDone[idx] = Boolean(day.flashcards_completed_at);
   }
+  for (const entry of snapshot.progress ?? []) {
+    const date = String(entry.date ?? "");
+    const matchingDay = snapshot.days.find((day) => String(day.scheduled_date ?? "") === date);
+    const idx = Number(matchingDay?.day_index ?? 0);
+    if (idx >= 1 && idx <= 14) progress[idx] = statusToProgress(String(entry.status ?? progress[idx] ?? "none"));
+  }
   for (const card of snapshot.flashcards ?? []) {
     const idx = Number(snapshot.days.find((d) => d.id === card.learning_day_id)?.day_index ?? 1);
     cards[idx] = cards[idx] ?? [];
