@@ -216,7 +216,7 @@ Status: **Implemented / prod deployed**
 - Cron decides among idle, generate, catch-up, advance, completed, and maxed states.
 - Cron saves generated learnable/cards/report to Supabase.
 - Cron sends report to Discord channel `1500687653798940822` through `DISCORD_BOT_TOKEN`.
-- Delivery state is persisted in `cron_reports` with status, `sent_at`, `message_id`, and `delivery_attempted_at` fields.
+- Delivery state is persisted in `cron_reports` with `status`, `sent_at`, `message_id`, and `updated_at`.
 - Discord sends are idempotent per learning day/report type/date.
 - A real Discord smoke message was previously sent and report status persisted.
 - Public unauthenticated cron returns `401`.
