@@ -102,7 +102,18 @@ export function AdrianoOSApp() {
     setTab("overview");
     setBusy(false);
   }
-  function startSprint() { setTab("today"); }
+  async function startSprint() {
+    if (state.sprintStatus === "draft") {
+      setBusy(true);
+      const response = await fetch("/api/sprints/start", { method: "POST" });
+      if (!response.ok) { setBusy(false); return; }
+      const activeResponse = await fetch("/api/sprints/active");
+      const active = await activeResponse.json().catch(() => null);
+      if (active?.ok && active.state) setState({ ...active.state, setupComplete: true, isAuthenticated: true });
+      setBusy(false);
+    }
+    setTab("today");
+  }
   async function completeLesson() {
     const day = state.learnables[state.activeDay] as DailyLearnable & { dbId?: string };
     if (day?.dbId) await fetch(`/api/days/${day.dbId}/lesson-complete`, { method: "POST" });

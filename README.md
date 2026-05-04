@@ -32,18 +32,19 @@ DISCORD_BOT_TOKEN=
 
 ## Current generation model
 
-The app does **not** embed an LLM provider key. It supports an Adriano/OpenClaw external generation handoff plus a deterministic fallback so the app never goes blank.
+The app does **not** embed an LLM provider key. It supports an Adriano/OpenClaw external research-generation handoff plus a deterministic fallback so the app never goes blank.
 
 1. Adriane submits topic details in the app.
-2. Server persists normalized topic/sprint/day rows in Supabase.
-3. Day 1 learnable/cards are generated immediately so Today is usable.
-4. OpenClaw can fetch protected generation context from `GET /api/adriano/generation-context` with `Authorization: Bearer <ADRIANOOS_CRON_SECRET>`.
-5. OpenClaw can save externally generated learnable/cards through `POST /api/adriano/day-content` with the same Bearer secret.
-6. JSON import restores sprint overview plus any included daily learnables/flashcards.
-7. Vercel Cron checks progress at 5 AM PH.
-8. If prior work is incomplete, cron marks missed/partial progress, assigns catch-up, and does not skip ahead.
-9. If complete, cron advances/generates or reuses the next day.
-10. Reports are persisted and Discord sends are idempotent.
+2. Server persists a draft sprint and fallback 7-day overview in normalized Supabase rows.
+3. OpenClaw can fetch protected generation context from `GET /api/adriano/generation-context` with `Authorization: Bearer <ADRIANOOS_CRON_SECRET>`.
+4. If the context says `research_sprint_overview`, OpenClaw researches externally and saves the researched 7-day overview through `POST /api/adriano/overview`.
+5. When Adriane starts the draft, Day 1 learnable/cards are generated so Today is usable.
+6. For active sprints, OpenClaw can research and save daily learnable/cards through `POST /api/adriano/day-content` with the same Bearer secret.
+7. JSON import restores sprint overview plus any included daily learnables/flashcards.
+8. Vercel Cron checks progress at 5 AM PH.
+9. If prior work is incomplete, cron marks missed/partial progress, assigns catch-up, and does not skip ahead.
+10. If complete, cron advances/generates or reuses the next day.
+11. Reports are persisted and Discord sends are idempotent.
 
 ## Verification
 
