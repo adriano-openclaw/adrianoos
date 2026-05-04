@@ -135,12 +135,25 @@ export function AdrianoOSApp() {
     setSecretInput("");
   }
   async function exportJson() { const response = await fetch("/api/export"); const data = await response.json(); const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }); const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = "adrianoos-export.json"; link.click(); URL.revokeObjectURL(url); }
+
+  async function regenerateOverview() {
+    if (state.sprintStatus !== "draft") return;
+    setBusy(true);
+    const response = await fetch("/api/sprints/regenerate", { method: "POST" });
+    if (!response.ok) { setBusy(false); return; }
+    const activeResponse = await fetch("/api/sprints/active");
+    const active = await activeResponse.json().catch(() => null);
+    if (active?.ok && active.state) setState({ ...active.state, setupComplete: true, isAuthenticated: true });
+    setTab("overview");
+    setBusy(false);
+  }
+
   async function importJson(file?: File) { if (!file) return; const json = JSON.parse(await file.text()); const response = await fetch("/api/import", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(json) }); if (!response.ok) return; const activeResponse = await fetch("/api/sprints/active"); const active = await activeResponse.json().catch(() => null); if (active?.ok && active.state) setState({ ...active.state, setupComplete: true, isAuthenticated: true }); setTab("overview"); }
 
   if (booting) return <Shell><CenteredCard icon={<Lock />} title="Checking AdrianoOS" note="Verifying setup status from Supabase..."><div className="h-2 rounded-full bg-[#E7F6FF]"><div className="h-2 w-1/2 animate-pulse rounded-full bg-[#0AA5FF]" /></div></CenteredCard></Shell>;
   if (!state.setupComplete) return <Shell><SecretSetup tokenName={setupTokenName} setTokenName={setSetupTokenName} password={setupPassword} setPassword={setSetupPassword} error={setupError} onSubmit={finishSetup} /></Shell>;
   if (!state.isAuthenticated) return <Shell><Login secret={secretInput} setSecret={setSecretInput} error={loginError} busy={busy} onSubmit={login} /></Shell>;
-  return <Shell><Header state={state} streak={streak} activeCards={activeCards} tab={tab} setTab={setTab} onLogout={logout} /><main className="mx-auto w-full max-w-6xl px-4 pb-12 sm:px-6 lg:px-8">{tab === "intake" && <Intake onSubmit={createSprint} />}{tab === "overview" && <Overview state={state} onStart={startSprint} onExport={exportJson} onImport={importJson} onRegenerate={() => setTab("intake")} />}{tab === "today" && <Today state={state} onComplete={completeLesson} onCards={() => setTab("flashcards")} />}{tab === "flashcards" && <Flashcards card={activeCard} cards={activeCards} index={cardIndex} total={activeCards.length} revealed={revealed} setRevealed={setRevealed} onRate={rateCard} />}{tab === "progress" && <Progress progress={state.progress} streak={streak} activeDay={state.activeDay} cards={state.cards} />}{tab === "import-export" && <ImportExport onExport={exportJson} onImport={importJson} state={state} />}</main></Shell>;
+  return <Shell><Header state={state} streak={streak} activeCards={activeCards} tab={tab} setTab={setTab} onLogout={logout} /><main className="mx-auto w-full max-w-6xl px-4 pb-12 sm:px-6 lg:px-8">{tab === "intake" && <Intake onSubmit={createSprint} />}{tab === "overview" && <Overview state={state} onStart={startSprint} onExport={exportJson} onImport={importJson} onRegenerate={regenerateOverview} />}{tab === "today" && <Today state={state} onComplete={completeLesson} onCards={() => setTab("flashcards")} />}{tab === "flashcards" && <Flashcards card={activeCard} cards={activeCards} index={cardIndex} total={activeCards.length} revealed={revealed} setRevealed={setRevealed} onRate={rateCard} />}{tab === "progress" && <Progress progress={state.progress} streak={streak} activeDay={state.activeDay} cards={state.cards} />}{tab === "import-export" && <ImportExport onExport={exportJson} onImport={importJson} state={state} />}</main></Shell>;
 }
 
 function Header({ state, streak, activeCards, tab, setTab, onLogout }: { state: LearningState; streak: number; activeCards: Flashcard[]; tab: Tab; setTab: (tab: Tab) => void; onLogout: () => void }) {
