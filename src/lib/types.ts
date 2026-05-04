@@ -76,4 +76,7 @@ export interface LearningState {
   progress: Record<number, ProgressStatus>;
   lessonDone: Record<number, boolean>;
   cardsDone: Record<number, boolean>;
+  sprintStatus?: "draft" | "active" | "completed" | "archived";
+  targetEndDate?: string;
+  maxEndDate?: string;
 }

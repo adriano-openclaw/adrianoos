@@ -42,7 +42,7 @@ export function snapshotToState(snapshot: SnapshotResponse): LearningState {
     if (card.card_json && typeof card.card_json === "object") cards[idx].push({ ...(card.card_json as Flashcard), id: String(card.id), dbId: card.id, rating: card.latest_rating || undefined } as Flashcard & { dbId?: unknown });
   }
 
-  return { setupComplete: true, isAuthenticated: true, sprintStarted: String(s.status) === "active", topic, overview, activeDay: Number(s.current_day_index ?? 1), learnables, cards, progress, lessonDone, cardsDone };
+  return { setupComplete: true, isAuthenticated: true, sprintStarted: String(s.status) === "active", topic, overview, activeDay: Number(s.current_day_index ?? 1), learnables, cards, progress, lessonDone, cardsDone, sprintStatus: String(s.status ?? "active") as LearningState["sprintStatus"], targetEndDate: String(s.target_end_date ?? ""), maxEndDate: String(s.max_end_date ?? "") };
 }
 
 export function statusToProgress(status: string): ProgressStatus {
