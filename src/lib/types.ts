@@ -32,7 +32,7 @@ export interface SprintOverview extends TopicInput {
 }
 
 export interface LearnableSection {
-  type: "overview" | "explanation" | "example" | "visual" | "mini_task" | "reflection";
+  type: "overview" | "explanation" | "example" | "visual" | "mini_task" | "reflection" | "review";
   title?: string;
   content?: string;
   instructions?: string;
