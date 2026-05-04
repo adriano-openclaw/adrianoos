@@ -1,5 +1,17 @@
 import type { DailyLearnable, Flashcard, SprintOverview, TopicInput } from "./types";
 
+interface WeakCardInput {
+  card_json?: Partial<Flashcard>;
+  rating?: "wrong" | "unsure" | "correct" | "unreviewed";
+}
+
+function normalizeWeakCards(cards: WeakCardInput[] = []) {
+  return cards
+    .map((card) => ({ ...(card.card_json ?? {}), rating: card.rating }))
+    .filter((card) => card.front || card.back || card.answer)
+    .slice(0, 6);
+}
+
 const dayTitles = [
   "Foundations, Vocabulary, and Mental Model",
   "Mechanics, Moving Parts, and Concrete Examples",
@@ -32,11 +44,12 @@ export function generateSprintOverview(input: TopicInput): SprintOverview {
   };
 }
 
-export function generateLongFormLearnable(overview: SprintOverview, dayIndex: number, catchup = false): DailyLearnable {
+export function generateLongFormLearnable(overview: SprintOverview, dayIndex: number, catchup = false, weakCards: WeakCardInput[] = []): DailyLearnable {
   const day = overview.days[Math.min(dayIndex, overview.days.length) - 1];
   const minutes = overview.dailyStudyMinutes;
   const topic = overview.topic.trim();
   const sectionCount = minutes === 90 ? 7 : minutes === 60 ? 5 : 4;
+  const weak = normalizeWeakCards(weakCards);
   const readingMinutes = Math.round(minutes * 0.62);
   const exampleMinutes = Math.round(minutes * 0.23);
   const exerciseMinutes = minutes - readingMinutes - exampleMinutes;
@@ -57,6 +70,7 @@ export function generateLongFormLearnable(overview: SprintOverview, dayIndex: nu
       section("example", "Worked example 1 — simple explanation", simpleExample(topic, overview)),
       section("example", "Worked example 2 — production scenario", productionExample(topic, overview, dayIndex)),
       section("example", "Common mistake walkthrough", mistakeWalkthrough(topic, overview)),
+      ...(weak.length ? [section("review", "Weak-card reinforcement", weakReviewBlock(topic, weak))] : []),
       section("reflection", "Multiple-choice checkpoint", multipleChoiceCheckpoint(topic, overview, dayIndex)),
       section("reflection", "Written checkpoint", `In 5-8 sentences, explain ${topic} to a teammate. Include: the problem, the mental model, one tradeoff, one example, and one reason not to use it. If this is a catch-up day, keep the answer short and finish the flashcards immediately after.`),
     ],
@@ -68,9 +82,19 @@ export function generateLongFormLearnable(overview: SprintOverview, dayIndex: nu
   };
 }
 
-export function generateExerciseCards(overview: SprintOverview, dayIndex: number): Flashcard[] {
+export function generateExerciseCards(overview: SprintOverview, dayIndex: number, weakCards: WeakCardInput[] = []): Flashcard[] {
   const topic = overview.topic.trim();
   const count = overview.dailyStudyMinutes === 90 ? 15 : overview.dailyStudyMinutes === 60 ? 12 : 8;
+  const weak = normalizeWeakCards(weakCards);
+  const reviewCards: Flashcard[] = weak.map((card, index) => ({
+    id: `day-${dayIndex}-review-${index + 1}`,
+    type: "scenario",
+    front: `${card.rating === "correct" ? "Cumulative review" : "Review weak card"}: ${card.front ?? "Explain the concept again."}`,
+    back: card.back ?? card.answer ?? `Restate the concept in simpler words, then connect it to ${topic}.`,
+    explanation: `This came back because the latest rating was ${card.rating ?? "review due"}. Wrong/unsure cards appear first; older correct cards still return for retention.`,
+    difficulty: card.rating === "correct" ? "medium" : "easy",
+    tags: ["review", ...(card.rating === "correct" ? [] : ["weak-card"]), ...(card.tags ?? [])].slice(0, 6),
+  }));
   const templates: Omit<Flashcard, "id">[] = [
     {
       type: "basic",
@@ -119,7 +143,9 @@ export function generateExerciseCards(overview: SprintOverview, dayIndex: number
       tags: ["debugging"],
     },
   ];
-  return Array.from({ length: count }, (_, i) => ({ ...templates[i % templates.length], id: `day-${dayIndex}-card-${i + 1}` }));
+  const newCount = Math.max(4, count - reviewCards.length);
+  const newCards = Array.from({ length: newCount }, (_, i) => ({ ...templates[i % templates.length], id: `day-${dayIndex}-card-${i + 1}` }));
+  return [...reviewCards, ...newCards].slice(0, count);
 }
 
 function section(type: DailyLearnable["sections"][number]["type"], title: string, content: string) {
@@ -190,6 +216,11 @@ function productionExample(topic: string, overview: SprintOverview, dayIndex: nu
 
 function mistakeWalkthrough(topic: string, overview: SprintOverview) {
   return `Common mistake: treating ${topic} as a magic label. That creates shallow understanding. Better: attach it to the specific goal “${overview.goal}.”\n\nBad explanation: “We should use ${topic} because it is modern.”\nBetter explanation: “We should use ${topic} because this problem has these constraints, this model clarifies the boundary, and these are the tradeoffs we accept.”\n\nIf you cannot write the better explanation yet, reread the mental model and decision-flow sections before doing flashcards.`;
+}
+
+function weakReviewBlock(topic: string, weak: Array<Omit<Partial<Flashcard>, "rating"> & { rating?: string }>) {
+  const bullets = weak.map((card, index) => `${index + 1}. ${card.front ?? "Weak concept"} — latest rating: ${card.rating ?? "weak"}. Re-answer it before moving on.`).join("\n");
+  return `Review loop for ${topic}: wrong and unsure cards come back first, and older correct cards can return for retention across days. Do not treat this as punishment; it is the adaptation loop doing its job.\n\n${bullets}\n\nAfter reviewing, write one corrected explanation for the weakest card and connect it to a real work decision.`;
 }
 
 function multipleChoiceCheckpoint(topic: string, overview: SprintOverview, dayIndex: number) {

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { generateFlashcards, generateLearnable } from "@/lib/learning";
 import { getSupabase } from "@/lib/supabase";
-import type { SprintOverview } from "@/lib/types";
+import type { Flashcard, SprintOverview } from "@/lib/types";
 
 export async function GET(request: Request) {
   const cronSecret = process.env.ADRIANOOS_CRON_SECRET;
@@ -25,10 +25,20 @@ export async function GET(request: Request) {
   const channelId = process.env.DISCORD_LEARNABLES_CHANNEL_ID ?? "1500687653798940822";
   if (!active || !day) return NextResponse.json({ ok: true, action: "idle", report: "No active sprint day." });
 
+  if (advance.action === "completed") {
+    return NextResponse.json({ ok: true, action: "completed", report: "Sprint is complete. Start a continuation sprint only if needed." });
+  }
+
   const overview = active.overview_json as SprintOverview;
   const catchup = advance.action === "catchup";
-  const learnable = generateLearnable(overview, Number(day.day_index), catchup);
-  const cards = generateFlashcards(overview, Number(day.day_index));
+  const weakCards = Array.isArray(data.weakCards) ? data.weakCards : [];
+  const reviewCards = Array.isArray(data.reviewCards) ? data.reviewCards : [];
+  const adaptiveCards = [...weakCards, ...reviewCards];
+  const existingCards = (Array.isArray(data.currentDayCards) ? data.currentDayCards.map((card: { card_json?: Flashcard }) => card.card_json).filter(Boolean) : []) as Flashcard[];
+  const hasExternalContent = Boolean(day.learnable_json && existingCards.length >= 8);
+  const learnable = hasExternalContent ? day.learnable_json : generateLearnable(overview, Number(day.day_index), catchup, adaptiveCards);
+  const cards: Flashcard[] = hasExternalContent ? existingCards : generateFlashcards(overview, Number(day.day_index), adaptiveCards);
+  const reviewCount = cards.filter((card) => card.tags?.includes("review") || card.tags?.includes("weak-card")).length;
   const strictNote = `You are behind. Finish Day ${day.day_index} lesson and cards before starting new content.`;
 
   const report = [
@@ -37,10 +47,11 @@ export async function GET(request: Request) {
     `- Focus: ${learnable.title}`,
     `- Study time: ${learnable.estimatedMinutes} minutes`,
     `- Required: finish the reading + ${cards.length} flashcards`,
+    reviewCount ? `- Review: ${reviewCount} weak/review card(s) come back first` : "- Review: no weak cards due yet",
     catchup ? `- Guardrail: ${strictNote}` : "- Guardrail: previous assigned work is complete; new content is unlocked.",
     `- Destination: <#${channelId}>`,
     "",
-    `**Summary:** ${catchup ? strictNote : "Adriano generated today's learnable and flashcards from the Supabase sprint/progress state. The app does not use an embedded LLM provider key."}`,
+    `**Summary:** ${catchup ? strictNote : hasExternalContent ? "Using Adriano/OpenClaw externally generated content already saved in Supabase. The app does not use an embedded LLM provider key." : "Adriano generated today's learnable and flashcards from the Supabase sprint/progress state, including weak-card adaptation when available. The app does not use an embedded LLM provider key."}`,
   ].join("\n");
 
   const { data: saved, error: saveError } = await supabase.rpc("adrianoos_save_day_content", {

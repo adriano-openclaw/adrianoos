@@ -27,20 +27,22 @@ DISCORD_BOT_TOKEN=
 
 - First setup requires `ADRIANOOS_SETUP_TOKEN` and stores only a bcrypt hash in Supabase.
 - `ADRIANOOS_CRON_SECRET` is hashed in `app_config` via `adrianoos_set_cron_secret`.
-- `/api/cron/daily` requires `Authorization: Bearer <ADRIANOOS_CRON_SECRET>` in production.
+- `/api/cron/daily`, `/api/adriano/generation-context`, and `/api/adriano/day-content` require `Authorization: Bearer <ADRIANOOS_CRON_SECRET>` in production.
 - Tables stay locked down with RLS; exposed access goes through security-definer RPCs.
 
 ## Current generation model
 
-The app does **not** embed an LLM provider key. Sprint/day generation is server-side deterministic scaffolding for now, designed as the handoff point for Adriano-operated generation. The durable flow is:
+The app does **not** embed an LLM provider key. It supports an Adriano/OpenClaw external generation handoff plus a deterministic fallback so the app never goes blank.
 
 1. Adriane submits topic details in the app.
 2. Server persists normalized topic/sprint/day rows in Supabase.
 3. Day 1 learnable/cards are generated immediately so Today is usable.
-4. Vercel Cron checks progress at 5 AM PH.
-5. If prior work is incomplete, cron assigns catch-up and does not skip ahead.
-6. If complete, cron advances/generates the next day.
-7. Reports are persisted and Discord sends are idempotent.
+4. OpenClaw can fetch protected generation context from `GET /api/adriano/generation-context` with `Authorization: Bearer <ADRIANOOS_CRON_SECRET>`.
+5. OpenClaw can save externally generated learnable/cards through `POST /api/adriano/day-content` with the same Bearer secret.
+6. Vercel Cron checks progress at 5 AM PH.
+7. If prior work is incomplete, cron assigns catch-up and does not skip ahead.
+8. If complete, cron advances/generates or reuses the next day.
+9. Reports are persisted and Discord sends are idempotent.
 
 ## Verification
 
