@@ -28,7 +28,8 @@ export async function POST(request: Request) {
     const learnable = generateLearnable(overview, 1, false);
     const cards = generateFlashcards(overview, 1);
     const report = [`**Today’s Learnables — Day 1**`, "", `- Focus: ${learnable.title}`, `- Study time: ${learnable.estimatedMinutes} minutes`, `- Required: finish the reading + ${cards.length} flashcards`, "", "**Summary:** Day 1 content was generated immediately from the sprint intake so the app is usable before the first 5 AM cron."].join("\n");
-    await getSupabase().rpc("adrianoos_save_day_content", { p_secret: cronSecret, p_sprint_id: data.sprintId, p_day_index: 1, p_learnable_json: learnable, p_flashcards_json: cards, p_report_markdown: report, p_report_type: "daily" });
+    const { data: saved, error: saveError } = await getSupabase().rpc("adrianoos_save_day_content", { p_secret: cronSecret, p_sprint_id: data.sprintId, p_day_index: 1, p_learnable_json: learnable, p_flashcards_json: cards, p_report_markdown: report, p_report_type: "daily" });
+    if (saveError || !saved?.ok) return NextResponse.json({ ok: false, error: saved?.error ?? saveError?.message ?? "Sprint created, but Day 1 generation failed." }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true, overview, ...data });
