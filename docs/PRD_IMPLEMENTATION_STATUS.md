@@ -120,7 +120,7 @@ Status: **Implemented / prod deployed**
 
 ### 8. Daily content generation quality
 
-Status: **Implemented as deterministic fallback + protected external research handoff; autonomous worker configured outside repo; first real worker run still needs verification**
+Status: **Implemented / prod deployed + worker verified**
 
 - Deterministic fallback generator creates substantial content for 30/60/90 minute study blocks.
 - 90-minute lessons include multiple reading sections, diagrams/concept flows, examples, common mistake walkthrough, MCQ checkpoint, written checkpoint, and references.
@@ -139,7 +139,7 @@ Status: **Implemented as deterministic fallback + protected external research ha
   - delivery: none
   - purpose: run before 5 AM app cron, fetch context, research externally, then post researched overview/day content back through protected endpoints.
 - Worker instructions are documented in `scripts/adrianoos-research-worker.md`.
-- Remaining proof needed: first successful scheduled or manual OpenClaw worker run that posts researched content.
+- Worker proof: manual run completed successfully on 2026-05-04 Asia/Manila and posted researched Day 1 content: 16 learnable sections, 16 flashcards, report `358c676d-fcee-4a84-8dba-7544e0b17157`.
 
 ### 9. Flashcards
 
@@ -223,14 +223,18 @@ Status: **Implemented / prod deployed**
 
 ### 14. Import/export
 
-Status: **Implemented / prod deployed**, acceptable MVP but still combined-snapshot style
+Status: **Implemented / prod deployed**
 
-- Export route: `GET /api/export`.
+- Combined export route: `GET /api/export`.
 - Import route: `POST /api/import`.
-- Export includes snapshot data for active sprint, overview, days, flashcards, reviews/progress context.
+- Combined export includes snapshot data for active sprint, overview, days, flashcards, reviews/progress context.
+- Separate PRD export routes exist:
+  - `GET /api/export/overview`
+  - `GET /api/export/daily-content`
+  - `GET /api/export/flashcards`
 - Import validates schema version and required overview/day shapes.
 - Import creates a fresh sprint and restores included daily learnables/flashcards when present.
-- Caveat: export is one combined snapshot file, not three separate buttons/files for overview/daily content/flashcards. This has been treated as acceptable MVP coverage so far, but it is a possible PRD strictness check item.
+- UI includes separate export buttons for overview JSON, daily content JSON, and flashcards JSON, plus the combined backup export.
 
 ### 15. API route inventory
 
@@ -248,6 +252,9 @@ Status: **Implemented / prod deployed unless noted**
 - `POST /api/days/[id]/lesson-complete`
 - `POST /api/flashcards/[id]/reviews`
 - `GET /api/export`
+- `GET /api/export/overview`
+- `GET /api/export/daily-content`
+- `GET /api/export/flashcards`
 - `POST /api/import`
 - `GET /api/cron/daily`
 - `GET /api/adriano/generation-context`
@@ -261,13 +268,6 @@ Status: **Implemented / prod deployed unless noted**
    - DB function inspection confirms a newly assigned same-day Day 1/current day with no `learnable_json` returns `action: generate`, not `catchup`.
    - Still useful to run a controlled end-to-end fixture or observe the next real cron run.
 
-2. **Verify autonomous OpenClaw worker first run**
-   - Cron job exists and is enabled outside repo, but first successful run has not yet been observed.
-   - Job ID: `6eecbb53-f355-4783-a252-5c1f2ad20110`.
-   - Name: `adrianoos-research-generation`.
-   - Schedule: 4:30 AM Asia/Manila.
-   - Next step: run manually once or wait for scheduled run, then inspect logs/output and Supabase `generation_requests`.
-
-3. **Final PRD strictness audit**
-   - After the above, compare this file against the PRD again.
-   - Pay special attention to strict import/export interpretation: combined snapshot vs separate overview/daily/flashcard exports.
+2. **Final PRD strictness audit**
+   - After the latest DB constraint/export/worker proof fixes, compare this file against the PRD again.
+   - Pay special attention to any remaining runtime-only assumptions rather than already verified features.
