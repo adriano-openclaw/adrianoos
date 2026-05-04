@@ -39,10 +39,11 @@ The app does **not** embed an LLM provider key. It supports an Adriano/OpenClaw 
 3. Day 1 learnable/cards are generated immediately so Today is usable.
 4. OpenClaw can fetch protected generation context from `GET /api/adriano/generation-context` with `Authorization: Bearer <ADRIANOOS_CRON_SECRET>`.
 5. OpenClaw can save externally generated learnable/cards through `POST /api/adriano/day-content` with the same Bearer secret.
-6. Vercel Cron checks progress at 5 AM PH.
-7. If prior work is incomplete, cron assigns catch-up and does not skip ahead.
-8. If complete, cron advances/generates or reuses the next day.
-9. Reports are persisted and Discord sends are idempotent.
+6. JSON import restores sprint overview plus any included daily learnables/flashcards.
+7. Vercel Cron checks progress at 5 AM PH.
+8. If prior work is incomplete, cron marks missed/partial progress, assigns catch-up, and does not skip ahead.
+9. If complete, cron advances/generates or reuses the next day.
+10. Reports are persisted and Discord sends are idempotent.
 
 ## Verification
 
