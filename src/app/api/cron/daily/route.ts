@@ -63,7 +63,22 @@ export async function GET() {
   const { data: saved, error: saveError } = await supabase.rpc("adrianoos_cron_save_state", { p_secret: cronSecret, p_state: nextState });
   if (saveError || !saved?.ok) return NextResponse.json({ ok: false, error: "Cron state save failed." }, { status: 500 });
 
-  return NextResponse.json({ ok: true, action: catchup ? "catchup" : "generated", targetDay, report });
+  const discord = await sendDiscordReport(channelId, report);
+
+  return NextResponse.json({ ok: true, action: catchup ? "catchup" : "generated", targetDay, discord, report });
+}
+
+async function sendDiscordReport(channelId: string, content: string) {
+  const token = process.env.DISCORD_BOT_TOKEN;
+  if (!token) return { sent: false, reason: "DISCORD_BOT_TOKEN is not configured." };
+  const response = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
+    method: "POST",
+    headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ content }),
+  });
+  if (!response.ok) return { sent: false, status: response.status };
+  const message = await response.json().catch(() => null);
+  return { sent: true, messageId: message?.id };
 }
 
 function normalizeState(value: Partial<LearningState> | null): LearningState {
