@@ -4,11 +4,12 @@ const dayTitles = ["Foundations, Vocabulary, and Mental Model", "Mechanics, Movi
 const focuses = ["foundation", "application", "decision", "application", "application", "review", "build"] as const;
 
 export function generateSprintOverview(input: TopicInput): SprintOverview {
-  return { ...input, defaultDays: 7, maxDays: 14, days: dayTitles.map((title, index) => ({ dayIndex: index + 1, title, objective: dayObjective(input.topic, index + 1), expectedOutcome: dayOutcome(input.topic, index + 1), focus: focuses[index], difficulty: index === 0 ? "beginner" : index < 3 ? "easy" : index < 6 ? "medium" : "advanced" })) };
+  const sprintDays = Math.min(Math.max(input.sprintDays || 7, 1), 14);
+  return { ...input, defaultDays: sprintDays, maxDays: 14, days: Array.from({ length: sprintDays }, (_, index) => { const title = dayTitles[index] ?? `Extension Day ${index + 1}: Essentials and Review`; return ({ dayIndex: index + 1, title, objective: dayObjective(input.topic, index + 1), expectedOutcome: dayOutcome(input.topic, index + 1), focus: focuses[index] ?? "review", difficulty: index === 0 ? "beginner" : index < 3 ? "easy" : index < 6 ? "medium" : "advanced" })}) };
 }
 
 export function generateLongFormLearnable(overview: SprintOverview, dayIndex: number, catchup = false): DailyLearnable {
-  const day = overview.days[Math.min(dayIndex, 7) - 1];
+  const day = overview.days[Math.min(dayIndex, overview.days.length) - 1];
   const minutes = overview.dailyStudyMinutes;
   const blocks = minutes === 90 ? 7 : minutes === 60 ? 5 : 3;
   const topic = overview.topic;
@@ -37,7 +38,7 @@ export function generateExerciseCards(overview: SprintOverview, dayIndex: number
 }
 
 function section(type: DailyLearnable["sections"][number]["type"], title: string, content: string) { return { type, title, content }; }
-function dayObjective(topic: string, day: number) { return [`Build a durable mental model of ${topic} and its purpose.`, `Understand how ${topic} works through concrete examples.`, `Learn when ${topic} is the right or wrong production choice.`, `Map ${topic} to implementation patterns and system boundaries.`, `Recognize common mistakes, debugging signals, and failure modes.`, `Reinforce weak areas and compress the concept into memory.`, `Create a work-ready checklist for applying ${topic}.`][day - 1]; }
-function dayOutcome(topic: string, day: number) { return [`Can explain ${topic} clearly to a beginner.`, `Can walk through examples without hand-waving.`, `Can make a justified architecture recommendation.`, `Can identify safe implementation boundaries.`, `Can debug common issues and avoid traps.`, `Can recall important details through exercises.`, `Can use ${topic} in real work planning.`][day - 1]; }
+function dayObjective(topic: string, day: number) { return [`Build a durable mental model of ${topic} and its purpose.`, `Understand how ${topic} works through concrete examples.`, `Learn when ${topic} is the right or wrong production choice.`, `Map ${topic} to implementation patterns and system boundaries.`, `Recognize common mistakes, debugging signals, and failure modes.`, `Reinforce weak areas and compress the concept into memory.`, `Create a work-ready checklist for applying ${topic}.`][Math.min(day, 7) - 1]; }
+function dayOutcome(topic: string, day: number) { return [`Can explain ${topic} clearly to a beginner.`, `Can walk through examples without hand-waving.`, `Can make a justified architecture recommendation.`, `Can identify safe implementation boundaries.`, `Can debug common issues and avoid traps.`, `Can recall important details through exercises.`, `Can use ${topic} in real work planning.`][Math.min(day, 7) - 1]; }
 function partTitle(index: number) { return ["Problem before solution", "Core mental model", "Important moving parts", "Tradeoffs and constraints", "Production example", "Common failure modes", "How to explain it at work"][index]; }
 function longReading(topic: string, overview: SprintOverview, dayIndex: number, deep: boolean) { return `${topic} should be learned from the problem outward. For Day ${dayIndex}, connect the idea to your goal: ${overview.goal}. Separate the concept from hype. Ask what inputs it needs, what output it promises, what complexity it hides, and what complexity it creates elsewhere.\n\nIn work, the useful question is rarely “can I use ${topic}?” It is “what decision becomes easier, safer, or more explicit if I use it?” If the answer is vague, the concept is not understood yet. If the answer names concrete constraints, you are closer to production judgment.${deep ? "\n\nFor a 90-minute session, slow down: write down the terms, compare with one alternative, and notice what would break if a core assumption changed. This should feel like a concise chapter, not a card." : ""}`; }

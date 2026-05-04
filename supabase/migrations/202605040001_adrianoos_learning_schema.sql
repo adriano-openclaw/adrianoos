@@ -222,3 +222,23 @@ grant execute on function public.adrianoos_setup(text, text) to anon;
 grant execute on function public.adrianoos_login(text, text) to anon;
 grant execute on function public.adrianoos_get_state(uuid) to anon;
 grant execute on function public.adrianoos_save_state(uuid, jsonb) to anon;
+
+create or replace function public.adrianoos_setup_status()
+returns jsonb
+language sql
+security definer
+set search_path = public, pg_temp
+as $$
+  select jsonb_build_object('setup_complete', exists(select 1 from public.app_secret));
+$$;
+
+grant execute on function public.adrianoos_setup_status() to anon;
+
+create table if not exists public.app_config (
+  key text primary key,
+  value_hash text not null,
+  created_at timestamptz not null default now()
+);
+alter table public.app_config enable row level security;
+do $$ begin create policy "deny all app_config" on public.app_config for all using (false) with check (false); exception when duplicate_object then null; end $$;
+-- Cron secret functions are applied separately with the secret seeded out-of-band.

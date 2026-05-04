@@ -12,6 +12,7 @@ export interface TopicInput {
   goal: string;
   targetOutcome: string;
   dailyStudyMinutes: StudyMinutes;
+  sprintDays: number;
   urgency?: string;
 }
 
@@ -25,7 +26,7 @@ export interface SprintDayOverview {
 }
 
 export interface SprintOverview extends TopicInput {
-  defaultDays: 7;
+  defaultDays: number;
   maxDays: 14;
   days: SprintDayOverview[];
 }
