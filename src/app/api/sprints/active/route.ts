@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { snapshotToState } from "@/lib/db-mappers";
 import { getSupabase } from "@/lib/supabase";
 
 async function sessionId() { return (await cookies()).get("adrianoos_session")?.value ?? ""; }
@@ -7,5 +8,5 @@ async function sessionId() { return (await cookies()).get("adrianoos_session")?.
 export async function GET() {
   const { data, error } = await getSupabase().rpc("adrianoos_active_snapshot", { p_session_id: await sessionId() });
   if (error || !data?.ok) return NextResponse.json({ ok: false, error: data?.error ?? "Unauthorized" }, { status: 401 });
-  return NextResponse.json({ schemaVersion: 1, exportedAt: new Date().toISOString(), ...data });
+  return NextResponse.json({ ok: true, snapshot: data, state: snapshotToState(data) });
 }

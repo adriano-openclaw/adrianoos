@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { BookOpen, Brain, CalendarCheck, CheckCircle2, Download, Flame, Lock, Play, RotateCcw, Upload } from "lucide-react";
-import { generateFlashcards, generateLearnable, generateSprintOverview, initialState, nextProgress } from "@/lib/learning";
-import type { CardRating, Flashcard, LearningState, ProgressStatus, TopicInput } from "@/lib/types";
+import { initialState } from "@/lib/learning";
+import type { CardRating, DailyLearnable, Flashcard, LearningState, ProgressStatus, TopicInput } from "@/lib/types";
 
 const STORAGE_KEY = "adrianoos:mvp-cache";
 type Tab = "intake" | "overview" | "today" | "flashcards" | "progress" | "import-export";
@@ -73,39 +73,49 @@ export function AdrianoOSApp() {
     if (!response.ok) return;
     const stateResponse = await fetch("/api/state");
     const result = await stateResponse.json().catch(() => null);
-    if (result?.ok && result.state) setState({ ...initialState, ...result.state, setupComplete: true, isAuthenticated: true });
+    const activeResponse = await fetch("/api/sprints/active");
+    const active = await activeResponse.json().catch(() => null);
+    if (active?.ok && active.state) setState({ ...active.state, setupComplete: true, isAuthenticated: true });
+    else if (result?.ok && result.state) setState({ ...initialState, ...result.state, setupComplete: true, isAuthenticated: true });
     else setState((current) => ({ ...current, setupComplete: true, isAuthenticated: true }));
   }
-  function createSprint(formData: FormData) {
+  async function createSprint(formData: FormData) {
     const input: TopicInput = {
       topic: String(formData.get("topic") || ""), description: String(formData.get("description") || ""), currentLevel: String(formData.get("currentLevel") || ""), goal: String(formData.get("goal") || ""), targetOutcome: String(formData.get("targetOutcome") || ""), dailyStudyMinutes: Number(formData.get("dailyStudyMinutes")) as 30 | 60 | 90, sprintDays: Math.min(Math.max(Number(formData.get("sprintDays") || 7), 1), 14), urgency: String(formData.get("urgency") || ""),
     };
-    const overview = generateSprintOverview(input);
-    setState((current) => ({ ...current, topic: input, overview, sprintStarted: false, activeDay: 1, learnables: { 1: generateLearnable(overview, 1) }, cards: { 1: generateFlashcards(overview, 1) }, progress: { 1: "started" }, lessonDone: {}, cardsDone: {} }));
+    const response = await fetch("/api/sprints", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) });
+    const result = await response.json().catch(() => null);
+    if (!response.ok || !result?.ok) return;
+    const activeResponse = await fetch("/api/sprints/active");
+    const active = await activeResponse.json().catch(() => null);
+    if (active?.ok && active.state) setState({ ...active.state, setupComplete: true, isAuthenticated: true });
     setTab("overview");
   }
   function startSprint() { setState((current) => ({ ...current, sprintStarted: true, progress: { ...current.progress, [current.activeDay]: "started" } })); setTab("today"); }
-  function completeLesson() { setState((current) => ({ ...current, lessonDone: { ...current.lessonDone, [current.activeDay]: true }, progress: { ...current.progress, [current.activeDay]: nextProgress(true, Boolean(current.cardsDone[current.activeDay])) } })); }
-  function rateCard(rating: CardRating) {
-    setState((current) => {
-      const dayCards = [...(current.cards[current.activeDay] ?? [])];
-      dayCards[cardIndex] = { ...dayCards[cardIndex], rating };
-      const done = dayCards.every((card) => card.rating);
-      return { ...current, cards: { ...current.cards, [current.activeDay]: dayCards }, cardsDone: { ...current.cardsDone, [current.activeDay]: done }, progress: { ...current.progress, [current.activeDay]: nextProgress(Boolean(current.lessonDone[current.activeDay]), done) } };
-    });
+  async function completeLesson() {
+    const day = state.learnables[state.activeDay] as DailyLearnable & { dbId?: string };
+    if (day?.dbId) await fetch(`/api/days/${day.dbId}/lesson-complete`, { method: "POST" });
+    const activeResponse = await fetch("/api/sprints/active");
+    const active = await activeResponse.json().catch(() => null);
+    if (active?.ok && active.state) setState({ ...active.state, setupComplete: true, isAuthenticated: true });
+  }
+  async function rateCard(rating: CardRating) {
+    if (activeCard?.id) await fetch(`/api/flashcards/${activeCard.id}/reviews`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rating }) });
+    const activeResponse = await fetch("/api/sprints/active");
+    const active = await activeResponse.json().catch(() => null);
+    if (active?.ok && active.state) setState({ ...active.state, setupComplete: true, isAuthenticated: true });
     setRevealed(false);
     setCardIndex((index) => Math.min(index + 1, activeCards.length - 1));
   }
-  function advanceDay() {
-    if (!state.overview) return;
-    const previousComplete = state.progress[state.activeDay] === "complete";
-    const nextDay = previousComplete ? Math.min(state.activeDay + 1, 14) : state.activeDay;
-    const canonicalDay = previousComplete ? Math.min(nextDay, 7) : state.activeDay;
-    setState((current) => ({ ...current, activeDay: nextDay, learnables: { ...current.learnables, [nextDay]: generateLearnable(state.overview!, canonicalDay, !previousComplete) }, cards: { ...current.cards, [nextDay]: generateFlashcards(state.overview!, canonicalDay) }, progress: { ...current.progress, [nextDay]: previousComplete ? "started" : "catchup" } }));
+  async function advanceDay() {
+    await fetch("/api/cron/daily", { headers: { "x-adrianoos-manual": "1" } });
+    const activeResponse = await fetch("/api/sprints/active");
+    const active = await activeResponse.json().catch(() => null);
+    if (active?.ok && active.state) setState({ ...active.state, setupComplete: true, isAuthenticated: true });
     setCardIndex(0); setTab("today");
   }
-  function exportJson() { const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" }); const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = "adrianoos-export.json"; link.click(); URL.revokeObjectURL(url); }
-  async function importJson(file?: File) { if (!file) return; setState(JSON.parse(await file.text())); setTab("overview"); }
+  async function exportJson() { const response = await fetch("/api/export"); const data = await response.json(); const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }); const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = "adrianoos-export.json"; link.click(); URL.revokeObjectURL(url); }
+  async function importJson(file?: File) { if (!file) return; const json = JSON.parse(await file.text()); const response = await fetch("/api/import", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(json) }); if (!response.ok) return; const activeResponse = await fetch("/api/sprints/active"); const active = await activeResponse.json().catch(() => null); if (active?.ok && active.state) setState({ ...active.state, setupComplete: true, isAuthenticated: true }); setTab("overview"); }
 
   if (booting) return <Shell><CenteredCard icon={<Lock />} title="Checking AdrianoOS" note="Verifying setup status from Supabase..."><div className="h-2 rounded-full bg-[#E7F6FF]"><div className="h-2 w-1/2 animate-pulse rounded-full bg-[#0AA5FF]" /></div></CenteredCard></Shell>;
   if (!state.setupComplete) return <Shell><SecretSetup tokenName={tokenName} setTokenName={setTokenName} password={setupPassword} setPassword={setSetupPassword} error={setupError} onSubmit={finishSetup} /></Shell>;
