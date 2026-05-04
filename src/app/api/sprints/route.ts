@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { generateSprintOverview } from "@/lib/learning";
+import { generateFlashcards, generateLearnable, generateSprintOverview } from "@/lib/learning";
 import { getSupabase } from "@/lib/supabase";
 
 async function sessionId() { return (await cookies()).get("adrianoos_session")?.value ?? ""; }
@@ -22,5 +22,14 @@ export async function POST(request: Request) {
     p_overview_json: overview,
   });
   if (error || !data?.ok) return NextResponse.json({ ok: false, error: data?.error ?? error?.message ?? "Sprint creation failed." }, { status: 400 });
+
+  const cronSecret = process.env.ADRIANOOS_CRON_SECRET;
+  if (cronSecret) {
+    const learnable = generateLearnable(overview, 1, false);
+    const cards = generateFlashcards(overview, 1);
+    const report = [`**Today’s Learnables — Day 1**`, "", `- Focus: ${learnable.title}`, `- Study time: ${learnable.estimatedMinutes} minutes`, `- Required: finish the reading + ${cards.length} flashcards`, "", "**Summary:** Day 1 content was generated immediately from the sprint intake so the app is usable before the first 5 AM cron."].join("\n");
+    await getSupabase().rpc("adrianoos_save_day_content", { p_secret: cronSecret, p_sprint_id: data.sprintId, p_day_index: 1, p_learnable_json: learnable, p_flashcards_json: cards, p_report_markdown: report, p_report_type: "daily" });
+  }
+
   return NextResponse.json({ ok: true, overview, ...data });
 }

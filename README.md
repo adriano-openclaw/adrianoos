@@ -1,36 +1,51 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AdrianoOS
 
-## Getting Started
+Private single-user learning sprint app for Adriane.
 
-First, run the development server:
+## Production architecture
+
+- Next.js App Router + TypeScript + Tailwind
+- Supabase Postgres with RLS enabled and deny-all table policies
+- Server/RPC access only for app data
+- Normalized learning tables: topics, sprints, days, flashcards, reviews, progress, cron reports
+- Daily Vercel Cron at 5 AM Asia/Manila (`0 21 * * *` UTC)
+- Discord report channel: `1500687653798940822`
+
+## Required environment variables
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
+ADRIANOOS_SETUP_TOKEN=
+ADRIANOOS_CRON_SECRET=
+CRON_SECRET= # same value as ADRIANOOS_CRON_SECRET for Vercel Cron Authorization header
+DISCORD_LEARNABLES_CHANNEL_ID=1500687653798940822
+DISCORD_BOT_TOKEN=
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Setup/security notes
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- First setup requires `ADRIANOOS_SETUP_TOKEN` and stores only a bcrypt hash in Supabase.
+- `ADRIANOOS_CRON_SECRET` is hashed in `app_config` via `adrianoos_set_cron_secret`.
+- `/api/cron/daily` requires `Authorization: Bearer <ADRIANOOS_CRON_SECRET>` in production.
+- Tables stay locked down with RLS; exposed access goes through security-definer RPCs.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Current generation model
 
-## Learn More
+The app does **not** embed an LLM provider key. Sprint/day generation is server-side deterministic scaffolding for now, designed as the handoff point for Adriano-operated generation. The durable flow is:
 
-To learn more about Next.js, take a look at the following resources:
+1. Adriane submits topic details in the app.
+2. Server persists normalized topic/sprint/day rows in Supabase.
+3. Day 1 learnable/cards are generated immediately so Today is usable.
+4. Vercel Cron checks progress at 5 AM PH.
+5. If prior work is incomplete, cron assigns catch-up and does not skip ahead.
+6. If complete, cron advances/generates the next day.
+7. Reports are persisted and Discord sends are idempotent.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Verification
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm run lint
+npm run build
+npm audit --audit-level=moderate
+```

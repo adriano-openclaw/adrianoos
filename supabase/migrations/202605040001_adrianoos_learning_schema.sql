@@ -523,3 +523,6 @@ grant execute on function public.adrianoos_mark_lesson_complete(uuid,uuid) to an
 grant execute on function public.adrianoos_review_card(uuid,uuid,text) to anon;
 grant execute on function public.adrianoos_cron_active_state(text) to anon;
 grant execute on function public.adrianoos_cron_advance_if_complete(text) to anon;
+
+-- Idempotent cron delivery and report status update helpers.
+-- See applied migration adrianoos_cron_idempotency_delivery for function bodies.

@@ -9,11 +9,7 @@ const STORAGE_KEY = "adrianoos:mvp-cache";
 type Tab = "intake" | "overview" | "today" | "flashcards" | "progress" | "import-export";
 
 export function AdrianoOSApp() {
-  const [state, setState] = useState<LearningState>(() => {
-    if (typeof window === "undefined") return initialState;
-    const saved = window.localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : initialState;
-  });
+  const [state, setState] = useState<LearningState>(initialState);
   const [tab, setTab] = useState<Tab>("intake");
   const [booting, setBooting] = useState(true);
   const [secretInput, setSecretInput] = useState("");
@@ -39,8 +35,7 @@ export function AdrianoOSApp() {
 
   useEffect(() => {
     if (booting) return;
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    if (state.isAuthenticated) void fetch("/api/state", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(state) });
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ setupComplete: state.setupComplete, lastSeen: new Date().toISOString() }));
   }, [booting, state]);
 
   const streak = useMemo(() => Object.values(state.progress).filter((status) => status === "complete").length, [state.progress]);

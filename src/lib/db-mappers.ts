@@ -39,7 +39,7 @@ export function snapshotToState(snapshot: SnapshotResponse): LearningState {
   for (const card of snapshot.flashcards ?? []) {
     const idx = Number(snapshot.days.find((d) => d.id === card.learning_day_id)?.day_index ?? 1);
     cards[idx] = cards[idx] ?? [];
-    if (card.card_json && typeof card.card_json === "object") cards[idx].push({ ...(card.card_json as Flashcard), id: String(card.id), dbId: card.id } as Flashcard & { dbId?: unknown });
+    if (card.card_json && typeof card.card_json === "object") cards[idx].push({ ...(card.card_json as Flashcard), id: String(card.id), dbId: card.id, rating: card.latest_rating || undefined } as Flashcard & { dbId?: unknown });
   }
 
   return { setupComplete: true, isAuthenticated: true, sprintStarted: String(s.status) === "active", topic, overview, activeDay: Number(s.current_day_index ?? 1), learnables, cards, progress, lessonDone, cardsDone };

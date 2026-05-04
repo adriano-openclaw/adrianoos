@@ -7,9 +7,10 @@ export async function GET(request: Request) {
   const cronSecret = process.env.ADRIANOOS_CRON_SECRET;
   if (!cronSecret) return NextResponse.json({ ok: false, error: "Cron secret is not configured." }, { status: 500 });
 
-  const isVercelCron = request.headers.get("user-agent")?.includes("vercel-cron") || request.headers.get("x-vercel-cron") === "1";
+  const auth = request.headers.get("authorization") ?? "";
+  const hasBearerSecret = auth === `Bearer ${cronSecret}`;
   const isManualLocal = process.env.NODE_ENV !== "production" && request.headers.get("x-adrianoos-manual") === "1";
-  if (!isVercelCron && !isManualLocal) return NextResponse.json({ ok: false, error: "Unauthorized cron trigger." }, { status: 401 });
+  if (!hasBearerSecret && !isManualLocal) return NextResponse.json({ ok: false, error: "Unauthorized cron trigger." }, { status: 401 });
 
   const supabase = getSupabase();
   const { data: advance, error: advanceError } = await supabase.rpc("adrianoos_cron_advance_if_complete", { p_secret: cronSecret });
@@ -53,7 +54,15 @@ export async function GET(request: Request) {
   });
   if (saveError || !saved?.ok) return NextResponse.json({ ok: false, error: saved?.error ?? saveError?.message ?? "Cron state save failed." }, { status: 500 });
 
+  if (saved.alreadySent) return NextResponse.json({ ok: true, action: "already_sent", dayIndex: day.day_index, messageId: saved.messageId, report });
+
   const discord = await sendDiscordReport(channelId, report);
+  await supabase.rpc("adrianoos_update_report_delivery", {
+    p_secret: cronSecret,
+    p_report_id: saved.reportId,
+    p_status: discord.sent ? "sent" : "failed",
+    p_message_id: discord.messageId ?? null,
+  });
   return NextResponse.json({ ok: true, action: catchup ? "catchup" : "generated", dayIndex: day.day_index, discord, report });
 }
 
